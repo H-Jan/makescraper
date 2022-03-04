@@ -4,30 +4,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"time"
 
 	"github.com/gocolly/colly"
 )
 
-type information struct {
-	id       string `json:"id"`
-	title    string `json:"title"`
-	location string `json:"location"`
-	summary  string `json:"summary"`
+type Jobs struct {
+	title    string
+	location string
+	summary  string
 }
 
-func createFile(file []byte) {
-	this := ioutil.WriteFile("output.json", file, 0644)
-	if err := this; err != nil {
-		panic(err)
-	}
-}
-
-func serializeJSON(info []information) {
-	fmt.Println("Serialization")
-	infoJSON, _ := json.Marshal(info)
-	createFile(infoJSON)
-	fmt.Println("Completed")
-	fmt.Println(string(infoJSON))
+func createFile(file []Jobs) {
+	jsonFile, _ := json.MarshalIndent(file, "", " ")
+	_ = ioutil.WriteFile("Jobs.json", jsonFile, 0644)
 }
 
 // main() contains code adapted from example found in Colly's docs:
@@ -35,26 +25,39 @@ func serializeJSON(info []information) {
 func main() {
 	// Instantiate default collector
 	c := colly.NewCollector()
-	infos := []information{}
+
+	c.SetRequestTimeout(60 * time.Second)
+	page := make([]Jobs, 0)
 
 	// On every a element which has href attribute call callback
-	c.OnHTML("body > div > div.row.header-box", func(e *colly.HTMLElement) {
-		//Child texts
-		info := information{}
-		info.id = e.ChildText("id")
-		info.title = e.ChildText("title")
-		info.location = e.ChildText("location")
-		info.summary = e.ChildText("summary")
-
-		// Print link
-		fmt.Printf("Job listing: %q\n", info.id, info.title, info.location, info.summary)
+	c.OnHTML("table.article-table", func(e *colly.HTMLElement) {
+		e.ForEach("tr", func(_ int, e *colly.HTMLElement) {
+			info := Jobs{}
+			info.title = e.ChildText("body")
+			info.location = e.ChildText("td")
+			info.summary = e.ChildText("td")
+			page = append(page, info)
+		})
 	})
 
 	// Before making a request print "Visiting ..."
+
 	c.OnRequest(func(r *colly.Request) {
 		fmt.Println("Visiting", r.URL.String())
 	})
 
+	c.OnRequest(func(r *colly.Request) {
+		fmt.Println("Visiting", r.URL.String())
+	})
+	c.OnResponse(func(r *colly.Response) {
+		fmt.Println("Got a response from", r.Request.URL)
+	})
+
+	c.OnError(func(r *colly.Response, e error) {
+		fmt.Println("Received error:", e)
+	})
+
 	c.Visit("https://www.indeed.com/")
-	serializeJSON(infos)
+
+	createFile(page)
 }
