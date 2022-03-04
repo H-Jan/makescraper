@@ -33,9 +33,9 @@ func main() {
 	c.OnHTML("table.article-table", func(e *colly.HTMLElement) {
 		e.ForEach("tr", func(_ int, e *colly.HTMLElement) {
 			info := Jobs{}
-			info.title = e.ChildText("body")
-			info.location = e.ChildText("td")
-			info.summary = e.ChildText("td")
+			info.title = e.ChildText("h1")
+			info.location = e.ChildText("body")
+			info.summary = e.ChildText("p")
 			page = append(page, info)
 		})
 	})
